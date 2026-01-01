@@ -1,30 +1,36 @@
-import os
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain_openai import ChatOpenAI
 
-# Configuration for AIDP GPU Endpoint
-AIDP_GPU_URL = "https://provider.aidp.network/v1" # Replace with actual AIDP node URL
-API_KEY = "YOUR_AIDP_API_KEY"
+from openai import OpenAI
+import base64
 
-def gpu_compute_task(prompt):
-    """
-    Standard function to route heavy inference tasks 
-    specifically to AIDP decentralized GPU nodes.
-    """
-    print(f"Routing task to AIDP GPU: {prompt}")
-    # In a real scenario, this uses the AIDP SDK to lease a GPU
-    return f"Processed on AIDP GPU Node: {prompt} - Result: Success"
+client = OpenAI(
+  base_url = "https://integrate.api.nvidia.com/v1",
+  api_key = "$NVIDIA_API_KEY"
+)
 
-## Define the AI Agent's Logic
-class AIDPAgent:
-    def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-4", temperature=0)
-        
-    def run_workflow(self, user_input):
-        if "generate" in user_input or "compute" in user_input:
-            return gpu_compute_task(user_input)
-        return "Task handled locally (Low compute required)."
 
-# Example Usage
-agent = AIDPAgent()
-print(agent.run_workflow("Generate a high-res 3D render using GPU compute"))
+
+with open('image_0.png', 'rb') as f:
+    image_b64_0 = base64.b64encode(f.read()).decode('utf-8')
+
+completion = client.chat.completions.create(
+  model="nvidia/llama-3.1-nemotron-nano-vl-8b-v1",
+  messages=[
+      {
+        "role": "user",
+        "content": [
+          { "type": "image_url", "image_url": { "url": f"data:image/png;base64,{image_b64_0}" } },
+          { "type": "text", "text": "Please extract the table in the image as HTML" }
+        ]
+      }
+    ],
+  temperature=1.00,
+  top_p=0.01,
+  max_tokens=1024,
+  stream=True
+)
+
+
+for chunk in completion:
+  if chunk.choices[0].delta.content is not None:
+    print(chunk.choices[0].delta.content, end="")
+
